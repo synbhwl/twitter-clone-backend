@@ -1,4 +1,6 @@
 *.sqlite
+*.db
 docs/
 node_modules/
 .env
+src/main.txt
