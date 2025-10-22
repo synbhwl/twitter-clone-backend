@@ -21,9 +21,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction){
         if(err){
             console.error('cannot log in, invalid token error', err.message);
             return res.status(403).json({ message: 'Forbidden: Invalid token.' });
-        };
+        }
 
-        res.locals.user = user;
+        res.locals.username = user.username
+        res.locals.userId = user.id;
 
         next();
     });

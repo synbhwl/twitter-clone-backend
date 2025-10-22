@@ -11,7 +11,8 @@ db = new sqlite3.Database('./mydb.db', (err: { message: any; }) => {
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            password TEXT NOT NULL,
+            user_id TEXT NOT NULL
         );`, (err) => {
                 if(err){
                     console.error('cannot make users table', err.message);

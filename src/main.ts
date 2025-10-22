@@ -6,6 +6,7 @@ import { db } from '../db/database';
 import jsonwebtoken from 'jsonwebtoken';
 import { port, jwtKey } from '../config/config';
 import { authMiddleware } from '../middlewares/authmw';
+import { getRandomId } from '../utils/generateId';
 
 // dotenv.config()
 // const PORT: number = process.env.PORT ? parseInt(process.env.PORT) : 8080;
@@ -55,10 +56,13 @@ app.post('/register', async(req: Request, res: Response, next: NextFunction) => 
         //gotta hash the password
         const hashedPassword: string = await bcrypt.hash(password, 12);
 
+        //gotta make an userId
+        const userId: string = getRandomId();
+
         //just in case, gotta check for duplicate
 
         //gotta add the thing in database
-        db.run(`INSERT INTO users (username, password) VALUES (?, ?);`, [username, hashedPassword], (err) => {
+        db.run(`INSERT INTO users (username, password, user_id) VALUES (?, ?, ?);`, [username, hashedPassword, userId], (err) => {
             if (err) {
                 if(err.message.startsWith('SQLITE_CONSTRAINT: UNIQUE constraint failed')){
                     return res.status(400).json({ error: 'username already taken'});
@@ -68,7 +72,7 @@ app.post('/register', async(req: Request, res: Response, next: NextFunction) => 
             }
         
             console.log('User added to the database');
-            return res.status(201).json({ message: 'User created successfully' });
+            return res.status(201).json({ message: 'User created successfully', user:{username: username, userId: userId}});
         });
          
     }catch(err){
@@ -103,11 +107,11 @@ app.post('/login', async(req: Request, res: Response, next: NextFunction) => {
                 }
 
                 const payload: any = {
-                    username: row.username,
-                    userId: row.id
+                    "userId": row.id,
+                    "username": row.username
                 }
 
-
+                console.log('payload is', payload);
                 const jwtToken: string = jsonwebtoken.sign(payload, jwtKey);
 
                 res.status(200).json({message:'user logged in successfully', payload: payload, token: jwtToken});
@@ -123,10 +127,8 @@ app.post('/login', async(req: Request, res: Response, next: NextFunction) => {
 
 app.post('/tweets', authMiddleware, async(req: Request, res: Response, next: NextFunction) => {
     try{
-        const userId: any = res.locals.user.userId;
-        const username: any = res.locals.user.username;
-
-        console.log(res.locals.user);
+        const username: string = res.locals?.username;
+        const userId: number = res.locals?.userId;
 
         //validate everything
         const tweetContent: string = req.body.content?.trim();
