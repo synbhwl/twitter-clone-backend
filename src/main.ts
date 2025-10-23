@@ -235,7 +235,7 @@ app.post('/tweets/:tweet_id/like', authMiddleware, async(req: Request, res: Resp
         
         //making sure you cant like it twice 
                 db.get(
-                    `SELECT tweet_id FROM tweets WHERE tweet_id = ? AND user_id = ?`, [newLike.tweet_id, newLike.liker_id], (err, row) =>{
+                    `SELECT tweet_id FROM likes WHERE tweet_id = ? AND liker_id = ?`, [newLike.tweet_id, newLike.liker_id], (err, row) =>{
                         if(err){
                             console.log('error while checking duplicate likes on a tweet', err.message);
                             return res.status(500).json({error:'error while liking a tweet'});
@@ -266,6 +266,46 @@ app.post('/tweets/:tweet_id/like', authMiddleware, async(req: Request, res: Resp
         throw (err)
     }
 
+});
+
+//to remove a like
+app.delete('/tweets/:tweet_id/like', authMiddleware, async(req: Request, res: Response, next: NextFunction)=>{
+    try{
+        const oldLike: like = {
+            tweet_id: req.params?.tweet_id,
+            liker_id: res.locals?.userId 
+        }
+
+        //see if exists
+        db.get(`
+        SELECT tweet_id FROM likes WHERE tweet_id = ? AND liker_id = ?
+        `, [oldLike.tweet_id, oldLike.liker_id], (err, row)=>{
+            if(err){
+                console.log('error while checking before deleting tweet if like exists', err.message);
+                return res.status(500).json({error:'error while deleting a like'}); 
+            }
+
+            if(!row){
+                console.log('user hasnt liked any such tweet');
+                return res.status(400).json({error:'You have never liked this tweet'});
+            }
+
+            db.run(
+                `DELETE FROM likes WHERE tweet_id = ? AND liker_id = ?`, [oldLike.tweet_id, oldLike.liker_id], (err) => {
+                    if(err){
+                        console.log('error while deleting a like', err.message);
+                        return res.status(500).json({error:'error while deleting a like'}); 
+                    }
+
+                    console.log('like was deleted successfully');
+                    res.status(204).json({message:'like deleted successfully'});
+                }
+            )
+        })
+
+    }catch(err){
+        throw(err)
+    }
 });
 
 //take care of the database closure 
