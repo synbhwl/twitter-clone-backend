@@ -7,6 +7,7 @@ import jsonwebtoken, { JwtPayload } from 'jsonwebtoken';
 import { port, jwtKey } from '../config/config';
 import { authMiddleware } from '../middlewares/authmw';
 import { getRandomId } from '../utils/generateId';
+import { like } from '../types/engagement';
 
 // dotenv.config()
 // const PORT: number = process.env.PORT ? parseInt(process.env.PORT) : 8080;
@@ -161,6 +162,9 @@ app.post('/tweets', authMiddleware, async(req: Request, res: Response, next: Nex
     }
 });
 
+//to get all the tweets 
+// needs to add the likes and other engagement stuff
+// also i think the server will crash if i dont nest the database queries, will need to check
 app.get('/tweets/:userId', async(req: Request, res: Response, next: NextFunction) =>{
     try{
         const userId: string = req.params.userId;
@@ -199,5 +203,69 @@ app.get('/tweets/:userId', async(req: Request, res: Response, next: NextFunction
     }
 });
 
+
+
+//to like a tweet
+app.post('/tweets/:tweet_id/like', authMiddleware, async(req: Request, res: Response, next: NextFunction)=>{
+    try{
+        const likerId: string = res.locals?.userId;
+        const tweetId: string = req.params?.tweet_id;
+
+        const newLike: like = {
+            liker_id: likerId,
+            tweet_id: tweetId
+        }
+
+        console.log('the newLike object is: ', newLike);
+
+        //lets check if the tweet even exists
+        db.get(
+            `SELECT tweet_id FROM tweets WHERE tweet_id = ?`, [newLike.tweet_id], (err, row) =>{
+                if(err){
+                    console.log('error while finding a tweet to be liked', err.message);
+                    return res.status(500).json({error:'error while liking a tweet'});
+                }
+
+                if(!row){
+                    console.log('cant like, tweet doesnt exist');
+                    return res.status(400).json({error:'tweet to be liked not found'});
+                }
+
+                //if it does exist
+        
+        //making sure you cant like it twice 
+                db.get(
+                    `SELECT tweet_id FROM tweets WHERE tweet_id = ? AND user_id = ?`, [newLike.tweet_id, newLike.liker_id], (err, row) =>{
+                        if(err){
+                            console.log('error while checking duplicate likes on a tweet', err.message);
+                            return res.status(500).json({error:'error while liking a tweet'});
+                        }
+
+                        if(row){
+                            console.log('duplicate like attempted');
+                            return res.status(400).json({error:'You have already liked this tweet'});
+                        }
+
+                        db.run(
+                            `INSERT INTO likes (tweet_id, liker_id) VALUES (?, ?)`, [newLike.tweet_id, newLike.liker_id], (err) =>{
+                                if(err){
+                                    console.log('error while liking a tweet', err.message);
+                                    return res.status(500).json({error:'error while liking a tweet'});
+                                }
+                
+                                res.status(201).json({message:'tweet liked sucessfully'});
+                            }
+                        );
+                    }
+                );
+            }
+        );
+
+
+    } catch (err){
+        throw (err)
+    }
+
+});
 
 //take care of the database closure 

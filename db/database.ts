@@ -35,6 +35,19 @@ db = new sqlite3.Database('./mydb.db', (err: { message: any; }) => {
                 }
             }
         );
+        db.run(`CREATE TABLE IF NOT EXISTS likes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            liker_id TEXT NOT NULL,
+            tweet_id TEXT NOT NULL,
+            timestamp TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'NOW', 'localtime'))
+        );`, (err) => {
+                if(err){
+                    console.error('cannot make likes table', err.message);
+                } else {
+                    console.log('Likes table created');
+                }
+            }
+        );
     }
 });
 
