@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import jsonwebtoken from 'jsonwebtoken';
+import jsonwebtoken, { Jwt, JwtPayload } from 'jsonwebtoken';
 import { jwtKey } from '../config/config';
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction){
     //add more checks later like bearer etc 
-    const authHeaders: any = req.headers['authorization'];
+    const authHeaders: string | undefined = req.headers?.['authorization'];
     if(authHeaders == null){
         console.error("No auth header was found");
         return res.status(401).json({error:'cannot log in, missing auth header'});
@@ -17,14 +17,23 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction){
 
     
 
-    jsonwebtoken.verify(token, jwtKey, (err: any, user: any) => {
+    jsonwebtoken.verify(token, jwtKey, (err: jsonwebtoken.JsonWebTokenError | null, payload: unknown) => {
         if(err){
             console.error('cannot log in, invalid token error', err.message);
             return res.status(403).json({ message: 'Forbidden: Invalid token.' });
         }
 
-        res.locals.username = user.username
-        res.locals.userId = user.id;
+        const decoded = payload as JwtPayload;
+
+        // console.log(decoded);
+
+        if (!decoded || !decoded.userId) {
+            return res.status(403).json({ message: 'Forbidden: Invalid token payload.' });
+          }
+
+
+        res.locals.username = decoded?.username;
+        res.locals.userId = decoded?.userId;
 
         next();
     });

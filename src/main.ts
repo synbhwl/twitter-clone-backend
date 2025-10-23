@@ -3,7 +3,7 @@ import * as dotenv from "dotenv";
 import * as bcrypt from 'bcryptjs';
 import { BadRequestError, DatabaseError } from '../types/errors';
 import { db } from '../db/database';
-import jsonwebtoken from 'jsonwebtoken';
+import jsonwebtoken, { JwtPayload } from 'jsonwebtoken';
 import { port, jwtKey } from '../config/config';
 import { authMiddleware } from '../middlewares/authmw';
 import { getRandomId } from '../utils/generateId';
@@ -65,7 +65,7 @@ app.post('/register', async(req: Request, res: Response, next: NextFunction) => 
         db.run(`INSERT INTO users (username, password, user_id) VALUES (?, ?, ?);`, [username, hashedPassword, userId], (err) => {
             if (err) {
                 if(err.message.startsWith('SQLITE_CONSTRAINT: UNIQUE constraint failed')){
-                    return res.status(400).json({ error: 'username already taken'});
+                    return res.status(400).json({ error: 'username or id already taken'});
                 }
                 console.error(`Database error: ${err.message}`);
                 return res.status(500).json({ error: 'Error creating user'});
@@ -88,7 +88,7 @@ app.post('/login', async(req: Request, res: Response, next: NextFunction) => {
         //validate it later, for now we gonna go with core logic
 
         //database seeing
-        db.get(`SELECT id, username, password FROM users WHERE username = ?`, [username], async(err, row:any)=>{
+        db.get(`SELECT user_id, username, password FROM users WHERE username = ?`, [username], async(err, row: {username: string, password:string, user_id:string})=>{
             if(err){
                 console.error('error while fetching user data for login', err.message);
                 return res.status(500).json({error:'cant fetch user data fot login'});
@@ -106,13 +106,13 @@ app.post('/login', async(req: Request, res: Response, next: NextFunction) => {
                     return res.status(403).json({error:'wrong password'});
                 }
 
-                const payload: any = {
-                    "userId": row.id,
-                    "username": row.username
+                const payload: JwtPayload = {
+                    userId: row.user_id,
+                    username: row.username
                 }
 
                 console.log('payload is', payload);
-                const jwtToken: string = jsonwebtoken.sign(payload, jwtKey);
+                const jwtToken = jsonwebtoken.sign(payload, jwtKey);
 
                 res.status(200).json({message:'user logged in successfully', payload: payload, token: jwtToken});
             }
@@ -142,15 +142,17 @@ app.post('/tweets', authMiddleware, async(req: Request, res: Response, next: Nex
             return res.status(400).json({error:'cannot make tweet, content should be atmost 250 characters'});
         }
 
+        const tweetId: string = getRandomId();
+
         db.run(`
-        INSERT INTO tweets (user_id, content) VALUES (?, ?)
-        `, [userId, tweetContent], (err) => {
+        INSERT INTO tweets (user_id, content, tweet_id) VALUES (?, ?, ?)
+        `, [userId, tweetContent, tweetId], (err) => {
             if(err){
                 console.error('cannot make tweet', err.message);
                 return res.status(500).json({error: 'cannot make tweet, something went wrong'});
             }
             console.log('a tweet was created by', username);
-            res.status(201).json({message: 'tweet created', userId: userId, tweet: req.body.content});
+            res.status(201).json({message: 'tweet created', userId: userId, tweet: req.body.content, tweetId: tweetId});
         })
         //add better validators later
         //gotta put in database as well
@@ -163,7 +165,7 @@ app.get('/tweets/:userId', async(req: Request, res: Response, next: NextFunction
     try{
         const userId: string = req.params.userId;
         db.get(`
-            SELECT username, password FROM users WHERE id = ?
+            SELECT username, password FROM users WHERE user_id = ?
         `, [userId], (err: any, row: any)=>{
             if(err){
                 console.error('cannot get user for tweet lookup', err.message);

@@ -12,7 +12,7 @@ db = new sqlite3.Database('./mydb.db', (err: { message: any; }) => {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            user_id TEXT NOT NULL
+            user_id TEXT NOT NULL UNIQUE
         );`, (err) => {
                 if(err){
                     console.error('cannot make users table', err.message);
@@ -23,7 +23,8 @@ db = new sqlite3.Database('./mydb.db', (err: { message: any; }) => {
         );
         db.run(`CREATE TABLE IF NOT EXISTS tweets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER UNIQUE NOT NULL,
+            user_id TEXT NOT NULL,
+            tweet_id TEXT UNIQUE NOT NULL,
             content TEXT NOT NULL,
             timestamp TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'NOW', 'localtime'))
         );`, (err) => {
